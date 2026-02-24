@@ -4,3 +4,4 @@ export { Action, CellType } from "./enums.js";
 export { Position } from "./models.js";
 export type { Bomb, Field, GameState, Player } from "./models.js";
 export { GameHelpers } from "./helpers.js";
+export { printField, renderField } from "./print-field.js";

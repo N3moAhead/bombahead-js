@@ -7,6 +7,7 @@ TypeScript SDK for building bots for BombAhead.
 - A simple `run(bot)` entrypoint to connect your bot to the game server.
 - Strong TypeScript models (`GameState`, `Position`, `Action`, `CellType`).
 - Utility helpers for navigation/safety (`GameHelpers`).
+- Console field rendering utilities (`renderField`, `printField`).
 - Runtime hardening against malformed data and invalid bot output (safe fallbacks instead of crashes).
 
 ---
@@ -188,6 +189,7 @@ export { Action, CellType };
 export { Position };
 export type { Bomb, Field, GameState, Player };
 export { GameHelpers };
+export { renderField, printField, RenderField, PrintField };
 ```
 
 ---

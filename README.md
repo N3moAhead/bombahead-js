@@ -189,7 +189,7 @@ export { Action, CellType };
 export { Position };
 export type { Bomb, Field, GameState, Player };
 export { GameHelpers };
-export { renderField, printField, RenderField, PrintField };
+export { renderField, printField };
 ```
 
 ---

@@ -1,5 +1,6 @@
-import { Action, CellType } from "./enums";
-import { GameState, Position } from "./models";
+import { Action, CellType } from "./enums.js";
+import { Position } from "./models.js";
+import type { GameState } from "./models.js";
 
 export class GameHelpers {
   constructor(private readonly state: GameState) {}

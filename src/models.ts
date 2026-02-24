@@ -1,4 +1,4 @@
-import { CellType } from "./enums";
+import { CellType } from "./enums.js";
 
 export class Position {
   constructor(

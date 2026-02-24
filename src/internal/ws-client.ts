@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { Action } from "../enums";
+import { Action } from "../enums.js";
 
 type Listener<T = void> = (payload: T) => void;
 

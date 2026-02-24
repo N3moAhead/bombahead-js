@@ -1,6 +1,6 @@
-import { Action } from "./enums";
-import { GameHelpers } from "./helpers";
-import { GameState } from "./models";
+import { Action } from "./enums.js";
+import { GameHelpers } from "./helpers.js";
+import type { GameState } from "./models.js";
 
 export interface IBot {
   getNextMove(state: GameState, helpers: GameHelpers): Action | Promise<Action>;

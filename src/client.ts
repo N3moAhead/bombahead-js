@@ -1,8 +1,9 @@
-import { Action, CellType } from "./enums";
-import { IBot } from "./bot";
-import { GameHelpers } from "./helpers";
-import { Bomb, Field, GameState, Player, Position } from "./models";
-import { WsClient } from "./internal/ws-client";
+import { Action, CellType } from "./enums.js";
+import type { IBot } from "./bot.js";
+import { GameHelpers } from "./helpers.js";
+import { Position } from "./models.js";
+import type { Bomb, Field, GameState, Player } from "./models.js";
+import { WsClient } from "./internal/ws-client.js";
 
 const MSG_WELCOME = "welcome";
 const MSG_BACK_TO_LOBBY = "back_to_lobby";
@@ -77,7 +78,9 @@ export async function run(userBot: IBot): Promise<void> {
 
   client.onDisconnect(({ code, reason }) => {
     // eslint-disable-next-line no-console
-    console.warn(`[bombahead-sdk] disconnected (${code}): ${reason || "no reason"}`);
+    console.warn(
+      `[bombahead-sdk] disconnected (${code}): ${reason || "no reason"}`,
+    );
   });
 
   client.onMessage(async (raw) => {
@@ -105,7 +108,10 @@ export async function run(userBot: IBot): Promise<void> {
         return;
       case MSG_SERVER_ERROR: {
         // eslint-disable-next-line no-console
-        console.error("[bombahead-sdk] server error:", JSON.stringify(message.payload));
+        console.error(
+          "[bombahead-sdk] server error:",
+          JSON.stringify(message.payload),
+        );
         return;
       }
       case MSG_CLASSIC_STATE:
@@ -130,7 +136,10 @@ export async function run(userBot: IBot): Promise<void> {
       action = await userBot.getNextMove(state, helpers);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("[bombahead-sdk] bot threw in getNextMove, fallback to nothing", error);
+      console.error(
+        "[bombahead-sdk] bot threw in getNextMove, fallback to nothing",
+        error,
+      );
       action = Action.DO_NOTHING;
     }
 
@@ -161,7 +170,9 @@ function toGameState(payload: ClassicStatePayload, myId: string): GameState {
     fuse: b.fuse,
   }));
 
-  const explosions = (payload.explosions ?? []).map((p) => new Position(p.x, p.y));
+  const explosions = (payload.explosions ?? []).map(
+    (p) => new Position(p.x, p.y),
+  );
 
   return {
     currentTick: payload.currentTick ?? 0,

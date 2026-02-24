@@ -4,6 +4,12 @@
   "description": "The Javascript SDK for the BombAhead plattform",
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "types": "dist/index.d.ts",
   "files": [
     "dist"

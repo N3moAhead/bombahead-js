@@ -64,6 +64,7 @@ export async function run(userBot: IBot): Promise<void> {
     "dev-token-local";
 
   const client = new WsClient({ url: wsUrl, token });
+  const safeBot = toSafeBot(userBot);
 
   let myId = "";
 
@@ -95,8 +96,13 @@ export async function run(userBot: IBot): Promise<void> {
 
     switch (message.type) {
       case MSG_WELCOME: {
-        const payload = message.payload as WelcomePayload;
-        myId = payload.clientId ?? myId;
+        const payload = message.payload as Partial<WelcomePayload> | null;
+        if (
+          typeof payload?.clientId === "string" &&
+          payload.clientId.length > 0
+        ) {
+          myId = payload.clientId;
+        }
         return;
       }
       case MSG_BACK_TO_LOBBY: {
@@ -133,7 +139,7 @@ export async function run(userBot: IBot): Promise<void> {
 
     let action: Action;
     try {
-      action = await userBot.getNextMove(state, helpers);
+      action = normalizeAction(await safeBot.getNextMove(state, helpers));
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(
@@ -143,14 +149,19 @@ export async function run(userBot: IBot): Promise<void> {
       action = Action.DO_NOTHING;
     }
 
-    client.sendAction(action ?? Action.DO_NOTHING);
+    client.sendAction(action);
   });
 
-  client.connect();
+  try {
+    client.connect();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[bombahead-sdk] failed to connect websocket", error);
+  }
 }
 
 function toGameState(payload: ClassicStatePayload, myId: string): GameState {
-  const players = (payload.players ?? []).map(toPlayer);
+  const players = (payload?.players ?? []).map(toPlayer);
   const me = players.find((p) => p.id === myId) ?? players[0];
 
   if (!me) {
@@ -160,22 +171,20 @@ function toGameState(payload: ClassicStatePayload, myId: string): GameState {
   const opponents = players.filter((p) => p.id !== me.id);
 
   const field: Field = {
-    width: payload.field?.width ?? 0,
-    height: payload.field?.height ?? 0,
-    cells: to2dCells(payload.field),
+    width: toNonNegativeInt(payload?.field?.width),
+    height: toNonNegativeInt(payload?.field?.height),
+    cells: to2dCells(payload?.field),
   };
 
-  const bombs: Bomb[] = (payload.bombs ?? []).map((b) => ({
-    pos: new Position(b.pos.x, b.pos.y),
-    fuse: b.fuse,
+  const bombs: Bomb[] = (payload?.bombs ?? []).map((b) => ({
+    pos: toPosition(b?.pos),
+    fuse: toNumberOr(b?.fuse, 0),
   }));
 
-  const explosions = (payload.explosions ?? []).map(
-    (p) => new Position(p.x, p.y),
-  );
+  const explosions = (payload?.explosions ?? []).map(toPosition);
 
   return {
-    currentTick: payload.currentTick ?? 0,
+    currentTick: toNumberOr(payload?.currentTick, 0),
     me,
     opponents,
     players,
@@ -185,19 +194,19 @@ function toGameState(payload: ClassicStatePayload, myId: string): GameState {
   };
 }
 
-function toPlayer(p: WirePlayer): Player {
+function toPlayer(p: WirePlayer | null | undefined): Player {
   return {
-    id: p.id,
-    pos: new Position(p.pos.x, p.pos.y),
-    health: p.health,
-    score: p.score,
+    id: typeof p?.id === "string" ? p.id : "",
+    pos: toPosition(p?.pos),
+    health: toNumberOr(p?.health, 0),
+    score: toNumberOr(p?.score, 0),
   };
 }
 
-function to2dCells(field: WireField): CellType[][] {
-  const width = field?.width ?? 0;
-  const height = field?.height ?? 0;
-  const flat = field?.field ?? [];
+function to2dCells(field: WireField | null | undefined): CellType[][] {
+  const width = toNonNegativeInt(field?.width);
+  const height = toNonNegativeInt(field?.height);
+  const flat = Array.isArray(field?.field) ? field.field : [];
 
   const rows: CellType[][] = [];
 
@@ -239,3 +248,70 @@ function decodeCell(input: CellType | number | string | undefined): CellType {
 
   return CellType.AIR;
 }
+
+function toPosition(pos: WirePosition | null | undefined): Position {
+  return new Position(toNonNegativeInt(pos?.x), toNonNegativeInt(pos?.y));
+}
+
+function toNumberOr(value: unknown, fallback: number): number {
+  if (
+    typeof value !== "number" ||
+    Number.isNaN(value) ||
+    !Number.isFinite(value)
+  ) {
+    return fallback;
+  }
+
+  return value;
+}
+
+function toNonNegativeInt(value: unknown): number {
+  const n = toNumberOr(value, 0);
+  if (!Number.isFinite(n) || n <= 0) {
+    return 0;
+  }
+
+  return Math.floor(n);
+}
+
+function normalizeAction(value: unknown): Action {
+  if (
+    value === Action.MOVE_UP ||
+    value === Action.MOVE_DOWN ||
+    value === Action.MOVE_LEFT ||
+    value === Action.MOVE_RIGHT ||
+    value === Action.PLACE_BOMB ||
+    value === Action.DO_NOTHING
+  ) {
+    return value;
+  }
+
+  return Action.DO_NOTHING;
+}
+
+function toSafeBot(userBot: IBot): IBot {
+  if (typeof userBot?.getNextMove === "function") {
+    return userBot;
+  }
+
+  // eslint-disable-next-line no-console
+  console.error(
+    "[bombahead-sdk] invalid bot object passed to run(), using safe DO_NOTHING fallback",
+  );
+
+  return {
+    getNextMove: () => Action.DO_NOTHING,
+  };
+}
+
+export const __internal = {
+  toGameState,
+  toPlayer,
+  to2dCells,
+  decodeCell,
+  toPosition,
+  toNumberOr,
+  toNonNegativeInt,
+  normalizeAction,
+  toSafeBot,
+};

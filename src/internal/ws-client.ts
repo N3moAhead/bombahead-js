@@ -29,7 +29,12 @@ export class WsClient {
       headers.Authorization = `Bearer ${this.options.token}`;
     }
 
-    this.socket = new WebSocket(this.options.url, { headers });
+    try {
+      this.socket = new WebSocket(this.options.url, { headers });
+    } catch (error) {
+      this.onErrorListener?.(error as Error);
+      return;
+    }
 
     this.socket.on("open", () => {
       this.onConnectListener?.();
@@ -70,7 +75,8 @@ export class WsClient {
 
   /** Sends the bot action in the server envelope format. */
   sendAction(action: Action): void {
-    this.send("classic_input", { move: action });
+    const move = isAction(action) ? action : Action.DO_NOTHING;
+    this.send("classic_input", { move });
   }
 
   /** Sends a custom envelope to the game server. */
@@ -79,7 +85,22 @@ export class WsClient {
       return;
     }
 
-    const msg: Envelope<TPayload> = { type, payload };
-    this.socket.send(JSON.stringify(msg));
+    try {
+      const msg: Envelope<TPayload> = { type, payload };
+      this.socket.send(JSON.stringify(msg));
+    } catch (error) {
+      this.onErrorListener?.(error as Error);
+    }
   }
+}
+
+function isAction(value: unknown): value is Action {
+  return (
+    value === Action.MOVE_UP ||
+    value === Action.MOVE_DOWN ||
+    value === Action.MOVE_LEFT ||
+    value === Action.MOVE_RIGHT ||
+    value === Action.PLACE_BOMB ||
+    value === Action.DO_NOTHING
+  );
 }

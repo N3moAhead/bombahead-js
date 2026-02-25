@@ -58,6 +58,8 @@ const bot: IBot = {
 await run(bot);
 ```
 
+To visualize the current field for debugging you can import and call the function `printField(state)`.
+
 ## Bot Interface
 
 ```ts

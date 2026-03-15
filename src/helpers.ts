@@ -9,11 +9,7 @@ export class GameHelpers {
    * Checks whether the position is inside bounds and not blocked by wall/box/bomb.
    */
   isWalkable(pos: Position): boolean {
-    if (!this.isValidPosition(pos)) {
-      return false;
-    }
-
-    if (!this.inBounds(pos)) {
+    if (!this.isValidPosition(pos) || !this.inBounds(pos)) {
       return false;
     }
 
@@ -48,44 +44,37 @@ export class GameHelpers {
    * Uses BFS to find an obstacle-aware shortest path.
    */
   getNextActionTowards(start: Position, target: Position): Action {
+    // Check if both given positions are valid
     if (!this.isValidPosition(start) || !this.isValidPosition(target)) {
       return Action.DO_NOTHING;
     }
-
+    // No movement required if we are already
+    // standing on the target
     if (start.equals(target)) {
       return Action.DO_NOTHING;
     }
 
-    if (!this.isWalkable(start) || !this.isWalkable(target)) {
-      return Action.DO_NOTHING;
-    }
-
-    const firstSteps = new Map<string, Action>();
-    const visited = new Set<string>([this.posKey(start)]);
-    const queue: Position[] = [start];
+    const visited = new Set<string>([this.posKey(target)]);
+    const queue: Position[] = [target];
 
     while (queue.length > 0) {
+      // Get the next element of the queue
       const current = queue.shift() as Position;
-      const currentKey = this.posKey(current);
 
       for (const next of this.getAdjacentWalkablePositions(current)) {
+        if (next.equals(start)) {
+          return this.actionBetween(start, current);
+        }
+
         const key = this.posKey(next);
+        // Check if we have already visited the field
+        // if so we can just skip it
+        // otherwise we are going to walk in circles :(
         if (visited.has(key)) {
           continue;
         }
-
         visited.add(key);
         queue.push(next);
-
-        if (current.equals(start)) {
-          firstSteps.set(key, this.actionBetween(current, next));
-        } else {
-          firstSteps.set(key, firstSteps.get(currentKey) as Action);
-        }
-
-        if (next.equals(target)) {
-          return firstSteps.get(key) ?? Action.DO_NOTHING;
-        }
       }
     }
 
@@ -93,30 +82,21 @@ export class GameHelpers {
   }
 
   /**
-   * Checks whether a tile appears safe in the current tick.
-   * Simulates active bomb chain reactions and blast propagation.
+   * Checks wether the position passed to the function
+   * could be hit by a bomb that is currently on the grid
+   *
+   * To achieve the desired effect we simulate a field where each bomb explodes
+   * afterwards we just check if the passed field is inside that explosion field
    */
   isSafe(pos: Position): boolean {
-    if (!this.isValidPosition(pos)) {
+    if (!this.isValidPosition(pos) || !this.inBounds(pos)) {
       return false;
     }
-
-    if (!this.inBounds(pos)) {
+    const dangerousPositions = this.getDangerousPositions();
+    if (dangerousPositions.has(this.posKey(pos))) {
       return false;
     }
-
-    if (this.state.explosions.some((exp) => exp.equals(pos))) {
-      return false;
-    }
-
-    if (this.state.bombs.some((bomb) => bomb.pos.equals(pos))) {
-      return false;
-    }
-
-    const imminentBombs = this.getImminentExplosionBombs();
-    const blastTiles = this.getBlastTiles(imminentBombs);
-
-    return !blastTiles.has(this.posKey(pos));
+    return true;
   }
 
   /**
@@ -156,14 +136,10 @@ export class GameHelpers {
   }
 
   /**
-   * Finds the nearest box position by path distance to an adjacent walkable cell.
+   * Finds the nearest box position by path distance to an adjacent walkable cell
    */
   findNearestBox(start: Position): Position | null {
     if (!this.isValidPosition(start)) {
-      return null;
-    }
-
-    if (!this.isWalkable(start)) {
       return null;
     }
 
@@ -197,86 +173,6 @@ export class GameHelpers {
     return null;
   }
 
-  private getImminentExplosionBombs(): Bomb[] {
-    const bombs = this.state.bombs;
-    const explodingKeys = new Set<string>();
-    const queue: Bomb[] = [];
-
-    for (const bomb of bombs) {
-      if (bomb.fuse <= 0) {
-        explodingKeys.add(this.posKey(bomb.pos));
-        queue.push(bomb);
-      }
-    }
-
-    if (queue.length === 0) {
-      return [];
-    }
-
-    const byKey = new Map<string, Bomb>();
-    for (const bomb of bombs) {
-      byKey.set(this.posKey(bomb.pos), bomb);
-    }
-
-    while (queue.length > 0) {
-      const bomb = queue.shift() as Bomb;
-      for (const key of this.getBlastTiles([bomb])) {
-        const triggeredBomb = byKey.get(key);
-        if (!triggeredBomb) {
-          continue;
-        }
-        if (explodingKeys.has(key)) {
-          continue;
-        }
-
-        explodingKeys.add(key);
-        queue.push(triggeredBomb);
-      }
-    }
-
-    return bombs.filter((bomb) => explodingKeys.has(this.posKey(bomb.pos)));
-  }
-
-  private getBlastTiles(bombs: Bomb[]): Set<string> {
-    const blast = new Set<string>();
-
-    for (const bomb of bombs) {
-      blast.add(this.posKey(bomb.pos));
-
-      const dirs = [
-        [0, -1],
-        [1, 0],
-        [0, 1],
-        [-1, 0],
-      ];
-
-      for (const [dx, dy] of dirs) {
-        for (let step = 1; step <= 3; step += 1) {
-          const p = new Position(
-            bomb.pos.x + dx * step,
-            bomb.pos.y + dy * step,
-          );
-          if (!this.inBounds(p)) {
-            break;
-          }
-
-          const cell = this.state.field.cells[p.y]?.[p.x];
-          if (cell === CellType.WALL) {
-            break;
-          }
-
-          blast.add(this.posKey(p));
-
-          if (cell === CellType.BOX) {
-            break;
-          }
-        }
-      }
-    }
-
-    return blast;
-  }
-
   private getAdjacentPositions(pos: Position): Position[] {
     return [
       new Position(pos.x, pos.y - 1),
@@ -297,6 +193,37 @@ export class GameHelpers {
       return Action.MOVE_DOWN;
     }
     return Action.MOVE_UP;
+  }
+
+  private getDangerousPositions(): Set<string> {
+    const BOMB_EXPLOSION_RANGE = 2;
+
+    const danger = new Set<string>();
+    const directions = [
+      [0, -1], // top
+      [0, 1], // down
+      [-1, 0], // left
+      [1, 0], // right
+    ];
+
+    this.state.bombs.forEach((bomb) => {
+      danger.add(this.posKey(bomb.pos));
+      directions.forEach((dir) => {
+        for (let step = 1; step <= BOMB_EXPLOSION_RANGE; step++) {
+          const pos = new Position(
+            bomb.pos.x + dir[0] * step,
+            bomb.pos.y + dir[1] * step,
+          );
+          if (!this.inBounds(pos)) break;
+          const tile = this.state.field.cells[pos.y][pos.x];
+          if (tile == CellType.WALL) break;
+          danger.add(this.posKey(pos));
+          if (tile == CellType.BOX) break;
+        }
+      });
+    });
+
+    return danger;
   }
 
   private posKey(pos: Position): string {

@@ -93,18 +93,27 @@ test("isSafe checks explosions, bomb occupancy, and chain-reaction blast tiles",
   );
   const state = makeState({
     field: { width: 5, height: 5, cells },
-    explosions: [new Position(0, 0)],
     bombs: [
       { pos: new Position(1, 1), fuse: 0 },
       { pos: new Position(3, 1), fuse: 4 },
+      { pos: new Position(2, 2), fuse: 8 },
     ],
   });
 
   const h = new GameHelpers(state);
-  assert.equal(h.isSafe(new Position(0, 0)), false);
+  assert.equal(h.isSafe(new Position(0, 0)), true);
   assert.equal(h.isSafe(new Position(1, 1)), false);
   assert.equal(h.isSafe(new Position(4, 1)), false);
+  assert.equal(h.isSafe(new Position(2, 1)), false);
+  assert.equal(h.isSafe(new Position(4, 1)), false);
+  assert.equal(h.isSafe(new Position(3, 1)), false);
+  assert.equal(h.isSafe(new Position(4, 2)), false);
   assert.equal(h.isSafe(new Position(4, 4)), true);
+  assert.equal(h.isSafe(new Position(0, 3)), true);
+  assert.equal(h.isSafe(new Position(0, 4)), true);
+  assert.equal(h.isSafe(new Position(1, 4)), true);
+  assert.equal(h.isSafe(new Position(3, 4)), true);
+  assert.equal(h.isSafe(new Position(4, 3)), true);
 });
 
 test("getNearestSafePosition returns closest reachable safe tile", () => {
